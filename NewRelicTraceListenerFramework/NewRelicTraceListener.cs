@@ -24,33 +24,13 @@ namespace NewRelicTraceListenerFramework
 	/// </summary>
 	public class NewRelicTraceListener : TraceListenerBase
 	{
-		private readonly BlockingCollection<JObject> _queueToBePosted = new BlockingCollection<JObject>();
-
-		private IElasticLowLevelClient _client;
+		private readonly BlockingCollection<Dictionary<string,object>> _queueToBePosted = new BlockingCollection<Dictionary<string, object>>();
 
 		private string _userDomainName;
 		private string _userName;
 
-		/// <summary>
-		/// Uri for the ElasticSearch server
-		/// </summary>
-		private Uri Uri { get; set; }
-
-		/// <summary>
-		/// prefix for the Index for traces
-		/// </summary>
-		private string Index => this.ElasticSearchTraceIndex.ToLower() + "-" + DateTime.UtcNow.ToString("yyyy-MM-dd-HH");
-
-
 		private static readonly string[] _supportedAttributes = new string[]
-		{
-			"ElasticSearchUri", "elasticSearchUri", "elasticsearchuri",
-			"ElasticSearchTraceIndex", "elasticSearchTraceIndex", "elasticsearchtraceindex",
-
-			//this attribute is to be removed next minor release
-			"ElasticSearchIndex", "elasticSearchIndex", "elasticsearchindex",
-
-		};
+		{ };
 
 		/// <summary>
 		/// Allowed attributes for this trace listener.
@@ -61,93 +41,12 @@ namespace NewRelicTraceListenerFramework
 		}
 
 
-		/// <summary>
-		/// Uri for the ElasticSearch server
-		/// </summary>
-		public string ElasticSearchUri
-		{
-			get
-			{
-				if (Attributes.ContainsKey("elasticsearchuri"))
-				{
-					return Attributes["elasticsearchuri"];
-				}
-				else
-				{
-					//return _defaultTemplate;
-					throw new ArgumentException($"{nameof(ElasticSearchUri)} attribute is not defined");
-				}
-			}
-			set
-			{
-				Attributes["elasticsearchuri"] = value;
-			}
-		}
-
-		/// <summary>
-		/// prefix for the Index for traces
-		/// </summary>
-		public string ElasticSearchTraceIndex
-		{
-			get
-			{
-				if (Attributes.ContainsKey("elasticsearchtraceindex"))
-				{
-					return Attributes["elasticsearchtraceindex"];
-				}
-				else
-				{
-					//return _defaultTemplate;
-					throw new ArgumentException($"{nameof(ElasticSearchTraceIndex)} attribute is not defined");
-				}
-			}
-			set
-			{
-				Attributes["elasticsearchtraceindex"] = value;
-			}
-		}
-
-
 
 		/// <summary>
 		/// Gets a value indicating the trace listener is thread safe.
 		/// </summary>
 		/// <value>true</value>
 		public override bool IsThreadSafe => true;
-
-		public IElasticLowLevelClient Client
-		{
-			get
-			{
-				if (_client != null)
-				{
-					return _client;
-				}
-				else
-				{
-					Uri = new Uri(this.ElasticSearchUri);
-
-					//Index = this.ElasticSearchTraceIndex.ToLower() + "-" + DateTime.UtcNow.ToString("yyyy-MM-dd");
-					//var cs = new ConnectionSettings(Uri);
-					//cs.ExposeRawResponse();
-					//cs.ThrowOnElasticsearchServerExceptions();
-
-					var singleNode = new SingleNodeConnectionPool(Uri);
-
-					var cc = new ConnectionConfiguration(singleNode,
-							connectionSettings => new ElasticsearchJsonNetSerializer())
-						.EnableHttpPipelining()
-						.EnableHttpCompression()
-						.ThrowExceptions();
-
-					//the 1.x serializer we needed to use, as the default SimpleJson didnt work right
-					//Elasticsearch.Net.JsonNet.ElasticsearchJsonNetSerializer()
-
-					this._client = new ElasticLowLevelClient(cc);
-					return this._client;
-				}
-			}
-		}
 
 		/// <summary>
 		/// We cant grab any of the attributes until the class and more importantly its base class has finsihed initializing
@@ -179,17 +78,17 @@ namespace NewRelicTraceListenerFramework
 			SetupObserverBatchy();
 		}
 
-		private Action<JObject> _scribeProcessor;
+		private Action<Dictionary<string,object>> _scribeProcessor;
 		private string _machineName;
 
-		private void SetupObserver()
-		{
-			_scribeProcessor = a => WriteDirectlyToES(a);
+		//private void SetupObserver()
+		//{
+		//	_scribeProcessor = a => WriteDirectlyToES(a);
 
-			//this._queueToBePosted.GetConsumingEnumerable()
-			//.ToObservable(Scheduler.Default)
-			//.Subscribe(x => WriteDirectlyToES(x));
-		}
+		//	//this._queueToBePosted.GetConsumingEnumerable()
+		//	//.ToObservable(Scheduler.Default)
+		//	//.Subscribe(x => WriteDirectlyToES(x));
+		//}
 
 
 		private void SetupObserverBatchy()
@@ -199,7 +98,7 @@ namespace NewRelicTraceListenerFramework
 			this._queueToBePosted.GetConsumingEnumerable()
 				.ToObservable(Scheduler.Default)
 				.Buffer(TimeSpan.FromSeconds(1), 10)
-				.Subscribe(async x => await this.WriteDirectlyToESAsBatch(x));
+				.Subscribe(async x => await this.WriteDirectlyToNewRelicAsBatch(x));
 		}
 
 
@@ -302,12 +201,6 @@ namespace NewRelicTraceListenerFramework
 			JObject dataObject)
 		{
 
-			//var timeStamp = DateTime.UtcNow.ToString("o");
-			//var source = Process.GetCurrentProcess().ProcessName;
-			//var stacktrace = Environment.StackTrace;
-			//var methodName = (new StackTrace()).GetFrame(StackTrace.METHODS_TO_SKIP + 4).GetMethod().Name;
-
-
 			DateTime logTime;
 			string logicalOperationStack = null;
 			if (eventCache != null)
@@ -339,12 +232,11 @@ namespace NewRelicTraceListenerFramework
 			IIdentity identity = principal?.Identity;
 			string identityname = identity == null ? string.Empty : identity.Name;
 
-
 			string username = $"{_userDomainName}\\{_userName}";
 
 			try
 			{
-				var jo = new JObject
+				var trace = new Dictionary<string, object>
 				{
 					{"Source", source },
 					{"TraceId", traceId ?? 0},
@@ -365,7 +257,7 @@ namespace NewRelicTraceListenerFramework
 					{"Identityname", identityname},
 				};
 
-				_scribeProcessor(jo);
+				_scribeProcessor(trace);
 			}
 			catch (Exception ex)
 			{
@@ -373,40 +265,30 @@ namespace NewRelicTraceListenerFramework
 			}
 		}
 
-		private async Task WriteDirectlyToES(JObject jo)
-		{
-			try
-			{
-				await Client.IndexAsync<VoidResponse>(Index, "Trace", jo.ToString());
-			}
-			catch (Exception ex)
-			{
-				Debug.WriteLine(ex);
-			}
-		}
 
-		private async Task WriteDirectlyToESAsBatch(IEnumerable<JObject> jos)
+		private async Task WriteDirectlyToNewRelicAsBatch(IEnumerable<IDictionary<string, object>> jos)
 		{
 			if (jos.Count() < 1)
 				return;
 
-			var indx = new { index = new { _index = Index, _type = "Trace" } };
-			var indxC = Enumerable.Repeat(indx, jos.Count());
 
-			var bb = jos.Zip(indxC, (f, s) => new object[] { s, f });
-			var bbo = bb.SelectMany(a => a);
+			foreach (var json in jos)
+			{
+				try
+				{
+					NewRelic.Api.Agent.NewRelic.RecordCustomEvent(@"Trace", json);
+				}
+				catch (Exception ex)
+				{
+					Debug.WriteLine(ex);
+				}
 
-			try
-			{
-				await Client.BulkPutAsync<VoidResponse>(Index, "Trace", bbo.ToArray(), br => br.Refresh(false));
 			}
-			catch (Exception ex)
-			{
-				Debug.WriteLine(ex);
-			}
+
+
 		}
 
-		private void WriteToQueueForprocessing(JObject jo)
+		private void WriteToQueueForprocessing(Dictionary<string,object> jo)
 		{
 			this._queueToBePosted.Add(jo);
 		}
