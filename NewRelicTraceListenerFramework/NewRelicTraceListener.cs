@@ -1,36 +1,42 @@
-﻿using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Dynamic;
+using System.IO;
 using System.Linq;
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Security.Principal;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Xml.XPath;
+using Daishi.NewRelic.Insights;
+using Jil;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace NewRelicTraceListenerFramework
 {
-	/// <summary>
-	/// A TraceListener class used to submit trace data to New Relic via .NET Agent API
-	/// RecordCustomEvent
-	/// <see cref="https://docs.newrelic.com/docs/agents/net-agent/net-agent-api/record-custom-event"/>
-	/// </summary>
-	public class NewRelicTraceListener : TraceListenerBase
+    /// <summary>
+    /// A TraceListener class used to submit trace data to New Relic via .NET Agent API
+    /// RecordCustomEvent
+    /// <see cref="https://docs.newrelic.com/docs/agents/net-agent/net-agent-api/record-custom-event"/>
+    /// </summary>
+    public class NewRelicTraceListener : TraceListenerBase
 	{
-		private readonly BlockingCollection<Dictionary<string,object>> _queueToBePosted = new BlockingCollection<Dictionary<string, object>>();
-
 		private string _userDomainName;
 		private string _userName;
+		private string _machineName;
 
 		private static readonly string[] _supportedAttributes = new string[]
-		{ };
+		{
+		    //"AccountID", "AccountId", "accountid","accountId",
+		    //"APIKey", "apiKey", "apikey", "APIkey", "apiKEY",
+		    //"insightsURI", "insightsuri", "insightsUri",
+        };
 
 		/// <summary>
 		/// Allowed attributes for this trace listener.
@@ -42,11 +48,13 @@ namespace NewRelicTraceListenerFramework
 
 
 
-		/// <summary>
-		/// Gets a value indicating the trace listener is thread safe.
-		/// </summary>
-		/// <value>true</value>
-		public override bool IsThreadSafe => true;
+
+
+        /// <summary>
+        /// Gets a value indicating the trace listener is thread safe.
+        /// </summary>
+        /// <value>true</value>
+        public override bool IsThreadSafe => true;
 
 		/// <summary>
 		/// We cant grab any of the attributes until the class and more importantly its base class has finsihed initializing
@@ -57,48 +65,45 @@ namespace NewRelicTraceListenerFramework
 			_userDomainName = Environment.UserDomainName;
 			_userName = Environment.UserName;
 			_machineName = Environment.MachineName;
-			Initialize();
+			//Initialize();
 		}
 
 		/// <summary>
 		/// We cant grab any of the attributes until the class and more importantly its base class has finsihed initializing
 		/// so keep the constructor at a minimum
 		/// </summary>
-		public NewRelicTraceListener(string name) : base(name)
+		public NewRelicTraceListener(string configData)
 		{
 			_userDomainName = Environment.UserDomainName;
 			_userName = Environment.UserName;
 			_machineName = Environment.MachineName;
-			Initialize();
+
+
+            //parse the config data
+
+		    Dictionary<string, string> keyValuePairs = configData.Split(';')
+		        .Select(value => value.Split('='))
+		        .ToDictionary(pair => pair[0].ToLower(), pair => pair[1]);
+
+		    string accountid = keyValuePairs["accountid"];
+		    string apikey = keyValuePairs["apikey"];
+
+		    var insightsuri = @"https://insights-collector.newrelic.com/v1/accounts";
+
+            if (keyValuePairs.ContainsKey("insightsuri"))
+		    {
+		        insightsuri = keyValuePairs["insightsuri"];
+		    }
+
+
+		    Initialize(accountid, apikey, insightsuri);
 		}
 
-		private void Initialize()
+        private void Initialize(string accountid, string apikey, string insightsuri)
 		{
-			//SetupObserver();
-			SetupObserverBatchy();
-		}
-
-		private Action<Dictionary<string,object>> _scribeProcessor;
-		private string _machineName;
-
-		//private void SetupObserver()
-		//{
-		//	_scribeProcessor = a => WriteDirectlyToES(a);
-
-		//	//this._queueToBePosted.GetConsumingEnumerable()
-		//	//.ToObservable(Scheduler.Default)
-		//	//.Subscribe(x => WriteDirectlyToES(x));
-		//}
-
-
-		private void SetupObserverBatchy()
-		{
-			_scribeProcessor = a => WriteToQueueForprocessing(a);
-
-			this._queueToBePosted.GetConsumingEnumerable()
-				.ToObservable(Scheduler.Default)
-				.Buffer(TimeSpan.FromSeconds(1), 10)
-				.Subscribe(async x => await this.WriteDirectlyToNewRelicAsBatch(x));
+		    NewRelicInsightsClient.Instance.NewRelicInsightsMetadata.AccountID = accountid;
+		    NewRelicInsightsClient.Instance.NewRelicInsightsMetadata.APIKey = apikey;
+		    NewRelicInsightsClient.Instance.NewRelicInsightsMetadata.URI = new Uri(insightsuri);
 		}
 
 
@@ -238,26 +243,26 @@ namespace NewRelicTraceListenerFramework
 			{
 				var trace = new Dictionary<string, object>
 				{
-					{"Source", source },
-					{"TraceId", traceId ?? 0},
-					{"EventType", eventType.ToString()},
-					{"UtcDateTime", logTime},
-					{"timestamp", eventCache?.Timestamp ?? 0},
-					{"MachineName", _machineName},
-					{"AppDomainFriendlyName", AppDomain.CurrentDomain.FriendlyName},
-					{"ProcessId", eventCache?.ProcessId ?? 0},
-					{"ThreadName", thread},
-					{"ThreadId", threadId},
-					{"Message", message},
-					{"ActivityId", Trace.CorrelationManager.ActivityId != Guid.Empty ? Trace.CorrelationManager.ActivityId.ToString() : string.Empty},
-					{"RelatedActivityId", relatedActivityId.HasValue ? relatedActivityId.Value.ToString() : string.Empty},
-					{"LogicalOperationStack", logicalOperationStack},
-					{"Data", dataObject},
-					{"Username", username},
-					{"Identityname", identityname},
+					{"source", source },
+					{"traceId", traceId ?? 0},
+					{"eventType", eventType.ToString()},
+					{"utcDateTime", logTime},
+					{"ticks", eventCache?.Timestamp ?? 0},
+					{"machineName", _machineName},
+					{"appDomainFriendlyName", AppDomain.CurrentDomain.FriendlyName},
+					{"processId", eventCache?.ProcessId ?? 0},
+					{"threadName", thread},
+					{"threadId", threadId},
+					{"message", message},
+					{"activityId", Trace.CorrelationManager.ActivityId != Guid.Empty ? Trace.CorrelationManager.ActivityId.ToString() : string.Empty},
+					{"relatedActivityId", relatedActivityId.HasValue ? relatedActivityId.Value.ToString() : string.Empty},
+					{"logicalOperationStack", logicalOperationStack},
+					{"data", dataObject},
+					{"username", username},
+					{"identityname", identityname},
 				};
 
-				_scribeProcessor(trace);
+				WriteToNewRelic(trace);
 			}
 			catch (Exception ex)
 			{
@@ -265,39 +270,122 @@ namespace NewRelicTraceListenerFramework
 			}
 		}
 
-
-		private async Task WriteDirectlyToNewRelicAsBatch(IEnumerable<IDictionary<string, object>> jos)
-		{
-			if (jos.Count() < 1)
-				return;
-
-
-			foreach (var json in jos)
-			{
-				try
-				{
-					NewRelic.Api.Agent.NewRelic.RecordCustomEvent(@"Trace", json);
-				}
-				catch (Exception ex)
-				{
-					Debug.WriteLine(ex);
-				}
-
-			}
+	    private void WriteToNewRelic(Dictionary<string, object> trace)
+	    {
+	        try
+	        {
+	            UploadEvents(
+	                Enumerable.Repeat(trace, 1),
+	                new HttpClientFactory());
+	        }
+	        catch (Exception ex)
+	        {
+	            Debug.WriteLine(ex);
+	        }
+	    }
 
 
-		}
+	    public void UploadEvents(
+            //IEnumerable<NewRelicInsightsEvent> newRelicInsightsEvents,
+            IEnumerable<Dictionary<string,object>> events,
+            HttpClientFactory httpClientFactory)
+	    {
+	        if (events == null || !events.Any())
+	        {
+	            return;
+	        }
 
-		private void WriteToQueueForprocessing(Dictionary<string,object> jo)
-		{
-			this._queueToBePosted.Add(jo);
-		}
+	        NewRelicInsightsMetadataException newRelicInsightsMetadataException;
+
+	        var newRelicInsightsMetadataIsValid =
+	            NewRelicInsightsMetadataValidator.TryValidate(NewRelicInsightsClient.Instance.NewRelicInsightsMetadata,
+	                out newRelicInsightsMetadataException);
+
+	        if (!newRelicInsightsMetadataIsValid)
+	        {
+	            throw newRelicInsightsMetadataException;
+	        }
+
+	        HttpClientHandler httpClientHandler;
+
+	        using (var httpClient = httpClientFactory.Create(NewRelicInsightsClient.Instance.NewRelicInsightsMetadata,
+	            out httpClientHandler))
+	        {
+	            httpClient.DefaultRequestHeaders.Accept.Clear();
+
+	            httpClient.DefaultRequestHeaders.Accept.Add(
+	                new MediaTypeWithQualityHeaderValue("application/json"));
+
+	            var apiKeyHeaderIsAdded = NewRelicInsightsCustomHttpHeaderInjecter.TryInjectAPIKey(
+	                "X-Insert-Key",
+	                NewRelicInsightsClient.Instance.NewRelicInsightsMetadata.APIKey,
+	                httpClient.DefaultRequestHeaders,
+	                out newRelicInsightsMetadataException);
+
+	            if (!apiKeyHeaderIsAdded) throw newRelicInsightsMetadataException;
+
+	            StringWriter stringWriter;
+	            HttpResponseMessage httpResponseMessage;
+
+	            using (stringWriter = new StringWriter())
+	            {
+	                try
+	                {
+	                    JSON.SerializeDynamic(events, stringWriter, Options.IncludeInherited);
+
+	                    httpResponseMessage = httpClient.PostAsync(
+	                        string.Concat(
+	                            NewRelicInsightsClient.Instance.NewRelicInsightsMetadata.URI, "/",
+	                            NewRelicInsightsClient.Instance.NewRelicInsightsMetadata.AccountID,
+	                            "/events"),
+	                        new StringContent(
+	                            stringWriter.ToString(),
+	                            Encoding.UTF8,
+	                            "application/json")
+	                    ).Result;
+	                }
+	                catch (Exception exception)
+	                {
+	                    throw new NewRelicInsightsEventUploadException(
+	                        "An error occurred while uploading events to New Relic Insights",
+	                        exception);
+	                }
+	            }
+
+	            NewRelicInsightsResponse newRelicInsightsResponse;
+
+	            try
+	            {
+	                var httpResponseContent =
+	                    httpResponseMessage.Content.ReadAsStringAsync().Result;
+
+	                newRelicInsightsResponse =
+	                    NewRelicInsightsResponseParser.Parse(
+	                        httpResponseMessage.IsSuccessStatusCode,
+	                        httpResponseContent);
+	            }
+	            catch (Exception exception)
+	            {
+	                throw new NewRelicInsightsEventUploadException(
+	                    "An error occurred while parsing the New Relic Insights HTTP response.",
+	                    exception);
+	            }
+
+	            if (!newRelicInsightsResponse.Success)
+	            {
+	                httpResponseMessage.Content?.Dispose();
+	                throw new UnableToParseNewRelicInsightsResponseException(
+	                    newRelicInsightsResponse.Message);
+	            }
+	        }
+	    }
 
 
-		/// <summary>
-		/// removing the spin flush
-		/// </summary>
-		public override void Flush()
+
+        /// <summary>
+        /// removing the spin flush
+        /// </summary>
+        public override void Flush()
 		{
 			//check to make sure the "queue" has been emptied
 			//while (this._queueToBePosted.Count() > 0)            { }
@@ -306,7 +394,7 @@ namespace NewRelicTraceListenerFramework
 
 		protected override void Dispose(bool disposing)
 		{
-			this._queueToBePosted.Dispose();
+			//this._queueToBePosted.Dispose();
 			base.Flush();
 			base.Dispose(disposing);
 		}

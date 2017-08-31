@@ -1,13 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.26730.10
+VisualStudioVersion = 15.0.26730.12
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewRelic.TraceListener", "NewRelic.TraceListener\NewRelic.TraceListener.csproj", "{4F7C1D58-9E8E-4A62-9BBE-95CEA1C3542C}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewRelicTraceListenerStandard", "NewRelicTraceListenerStandard\NewRelicTraceListenerStandard.csproj", "{DD5B5B6C-C93E-40B9-ADB8-99C762DFCD95}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewRelicTraceListenerFramework", "NewRelicTraceListenerFramework\NewRelicTraceListenerFramework.csproj", "{CDA600B6-8139-4C02-B8C3-FCB904520E78}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NewRelicTraceListener.Tester", "NewRelicTraceListener.Tester\NewRelicTraceListener.Tester.csproj", "{C39151B8-2292-4864-8317-8C5F8A9343EE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,18 +13,14 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{4F7C1D58-9E8E-4A62-9BBE-95CEA1C3542C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4F7C1D58-9E8E-4A62-9BBE-95CEA1C3542C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{4F7C1D58-9E8E-4A62-9BBE-95CEA1C3542C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4F7C1D58-9E8E-4A62-9BBE-95CEA1C3542C}.Release|Any CPU.Build.0 = Release|Any CPU
-		{DD5B5B6C-C93E-40B9-ADB8-99C762DFCD95}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{DD5B5B6C-C93E-40B9-ADB8-99C762DFCD95}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{DD5B5B6C-C93E-40B9-ADB8-99C762DFCD95}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{DD5B5B6C-C93E-40B9-ADB8-99C762DFCD95}.Release|Any CPU.Build.0 = Release|Any CPU
 		{CDA600B6-8139-4C02-B8C3-FCB904520E78}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{CDA600B6-8139-4C02-B8C3-FCB904520E78}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CDA600B6-8139-4C02-B8C3-FCB904520E78}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CDA600B6-8139-4C02-B8C3-FCB904520E78}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C39151B8-2292-4864-8317-8C5F8A9343EE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C39151B8-2292-4864-8317-8C5F8A9343EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C39151B8-2292-4864-8317-8C5F8A9343EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C39151B8-2292-4864-8317-8C5F8A9343EE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
