@@ -26,7 +26,7 @@ namespace NewRelicTraceListenerFramework
 				bool foundNode = false;
 				if (KnownLists != null && KnownLists.Count > 0)
 				{
-					foundNode = (from XElement el in node.Elements() where KnownLists.Contains(el.Name.LocalName) select el).Count() > 0;
+					foundNode = (from XElement el in node.Elements() where KnownLists.Contains(el.Name.LocalName) select el).Any();
 				}
 
 				if (nodeCount > 1 || foundNode == true)
