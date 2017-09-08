@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle("NewRelic.TraceListener")]
 [assembly: AssemblyDescription("TraceListener for NewRelic")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
+[assembly: AssemblyCompany("McCool enterprises")]
 [assembly: AssemblyProduct("NewRelic.TraceListener")]
 [assembly: AssemblyCopyright("Copyright ©  2017")]
 [assembly: AssemblyTrademark("")]
