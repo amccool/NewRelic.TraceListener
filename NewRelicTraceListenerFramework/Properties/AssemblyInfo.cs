@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("NewRelicTraceListenerFramework")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyTitle("NewRelic.TraceListener")]
+[assembly: AssemblyDescription("TraceListener for NewRelic")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("NewRelicTraceListenerFramework")]
+[assembly: AssemblyProduct("NewRelic.TraceListener")]
 [assembly: AssemblyCopyright("Copyright ©  2017")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
