@@ -10,7 +10,7 @@
     <description>$description$</description>
     <copyright>MIT</copyright>
     <summary>A TraceListener for submitting trace events and trace data to NewRelic</summary>
-    <projectUrl>https://github.com/amccool/NewRelic.Diagnostics</projectUrl>
+    <projectUrl>https://github.com/amccool/NewRelic.TraceListener</projectUrl>
     <tags>Diagnostics, Trace, TraceListener, NewRelic</tags>
   </metadata>
   <files />
